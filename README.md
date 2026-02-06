@@ -21,7 +21,6 @@ Automate the extraction of electricity usage data from the Hydro Ottawa portal h
 Install this add-on and fill in the following:
 * **Username/Password:** Your Hydro Ottawa portal credentials.
 * **Browserless URL:** Usually `ws://homeassistant:3000` or the IP of your HA instance.
-* **Scrapes per day:** How often you want to check for new data (Hydro Ottawa usually updates once daily).
 
 ### 3. Energy Dashboard Integration
 Install the [Green Button Integration] https://github.com/rhounsell/home-assistant-green-button (via HACS). This integration provides the service needed to process the XML file saved by this scraper.
