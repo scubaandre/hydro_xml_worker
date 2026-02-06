@@ -12,7 +12,7 @@ Automate the extraction of electricity usage data from the Hydro Ottawa portal h
 ## Installation & Setup
 
 ### 1. Prerequisites
-* **Browserless:** Install the "Browserless" add-on from the Home Assistant Community Add-ons store. Ensure it is running.
+* **Browserless:** Install the [Browserless] https://github.com/alexbelgium/hassio-addons/tree/master/browserless_chrome  add-on from the Home Assistant Community Add-ons store. Ensure it is running.
 * **Folder Watcher:** Add the following to your `configuration.yaml` to allow Home Assistant to "see" when the scraper finishes:
     ```yaml
     folder_watcher:
