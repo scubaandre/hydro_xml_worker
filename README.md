@@ -2,14 +2,14 @@
 
 Automate the extraction of electricity usage data from the Hydro Ottawa portal hosted on hydroottawa.savagedata.com, into your Home Assistant Energy Dashboard.
 
-## 🧩 How it Works
+## How it Works
 1. **The Scraper (This Add-on):** Logs into the Hydro Ottawa portal using a "headless" browser, intercepts the Green Button XML data, and saves it to your `/share` folder.
 2. **Browserless:** A required companion add-on that provides the "engine" for the scraper.
 3. **Green Button Integration:** A custom integration that reads the saved XML file and pushes it into the Energy Dashboard.
 
 ---
 
-## 🚀 Installation & Setup
+## Installation & Setup
 
 ### 1. Prerequisites
 * **Browserless:** Install the "Browserless" add-on from the Home Assistant Community Add-ons store. Ensure it is running.
@@ -32,7 +32,7 @@ Install the [Green Button Integration] https://github.com/rhounsell/home-assista
 
 ---
 
-## 🤖 Recommended Automation
+## Recommended Automation
 To fully automate this, use a sequence that starts the scraper and waits for the file to be saved before importing:
 
 ```yaml
