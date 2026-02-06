@@ -13,13 +13,9 @@ Automate the extraction of electricity usage data from the Hydro Ottawa portal h
 
 ### 1. Prerequisites
 * **Browserless:** Install the [Browserless] https://github.com/alexbelgium/hassio-addons/tree/master/browserless_chrome  add-on from the Home Assistant Community Add-ons store. Ensure it is running.
-* **Folder Watcher:** Add the following to your `configuration.yaml` to allow Home Assistant to "see" when the scraper finishes:
-    ```yaml
-    folder_watcher:
-      - folder: /share/hydro_ottawa
-        patterns:
-          - 'hydro_data.xml'
-    ```
+* **Folder Watcher:** Add the [Folder watcher integration] https://my.home-assistant.io/redirect/config_flow_start?domain=folder_watcher to allow Home Assistant to "see" when the scraper finishes:
+* folder: /share/hydro_ottawa
+* patterns: 'hydro_data.xml'
 
 ### 2. Add-on Configuration
 Install this add-on and fill in the following:
@@ -33,7 +29,7 @@ Install the [Green Button Integration] https://github.com/rhounsell/home-assista
 ---
 
 ## Recommended Automation
-To fully automate this, use a sequence that starts the scraper and waits for the file to be saved before importing:
+To fully automate this, use a sequence that starts the scraper and waits for the file to be saved before importing. Add the following in YAML mode the switch to UI to select the right app/add-on:
 
 ```yaml
 alias: "Hydro Ottawa: Daily Update"
