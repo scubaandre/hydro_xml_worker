@@ -6,7 +6,7 @@ import json
 from pyppeteer import connect
 
 # --- VERSIONING ---
-VERSION = "00.01.00"
+VERSION = "00.01.01"
 OPTIONS_PATH = "/data/options.json"
 
 # --- CONFIGURATION LOADING ---
@@ -107,17 +107,38 @@ async def download_hydro_data():
         await page.setRequestInterception(True)
         page.on('request', lambda req: asyncio.ensure_future(intercept_request(req)) or asyncio.ensure_future(req.continue_()))
 
-        # 5. Trigger
-        logger.info("Triggering XML export...")
+# 5. Trigger Green Button Download (Usage + Costs)
+        logger.info("Triggering data export sequence for Usage and Billing data...")
         await page.evaluate("""async () => {
-            const cb = document.querySelector('.rz-chkbox-box');
-            if (cb) cb.click();
-            
+            const clickRadzenCheck = (inputId) => {
+                const input = document.getElementById(inputId);
+                if (input) {
+                    // Navigate to the parent .rz-chkbox and find the clickable .rz-chkbox-box
+                    const container = input.closest('.rz-chkbox');
+                    const box = container ? container.querySelector('.rz-chkbox-box') : null;
+                    
+                    // Only click if it's not already active (checked)
+                    if (box && !box.classList.contains('rz-state-active')) {
+                        box.click();
+                    }
+                }
+            };
+
+            // Select 'Usage' and 'Billing' specifically by their ID
+            clickRadzenCheck('chkElectUsageData');
+            clickRadzenCheck('chkBillingData');
+
+            // Wait for Blazor to stop processing the state changes
             await new Promise(r => {
                 const i = setInterval(() => {
-                    if (!document.querySelector('.rz-progressbar')) { clearInterval(i); r(); }
+                    if (!document.querySelector('.rz-progressbar')) { 
+                        clearInterval(i); 
+                        r(); 
+                    }
                 }, 500);
             });
+
+            // Find and click the Green Button logo button
             const btn = Array.from(document.querySelectorAll('button'))
                              .find(b => b.querySelector('img[src*="gb_logo.png"]'));
             if (btn) btn.click();
