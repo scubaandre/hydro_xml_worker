@@ -1,5 +1,10 @@
 # Changelog
 
+## [00.01.01] - 2026-02-07
+### Added
+- Support for including Billing/Cost data in the XML export.
+- Precise element targeting using Radzen input IDs.
+
 ## [00.01.00] - 2026-02-06
 ### Added
 - **Debug Mode**: New configuration toggle to save step-by-step screenshots to `/share/hydro_ottawa/` for easier troubleshooting.
@@ -27,4 +32,5 @@
 
 ## 0.00.01 - 0.00.06
 - Initial local development and proof-of-concept.
+
 - Implemented Browserless CDP session for XML interception.
