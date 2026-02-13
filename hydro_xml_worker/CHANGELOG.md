@@ -1,5 +1,18 @@
 # Changelog
 
+## [00.01.03] - 2026-02-13
+### Added
+- **Milestone Debugging:** Detailed log output for every stage of the scraping process (Login, Navigation, Interception).
+- **CPU Safety Valve:** Implemented `asyncio.sleep` in the main loop and error handlers to prevent high CPU usage (busy-looping).
+- **Live Config Reload:** The service now re-reads `scrapes_per_day` and `debug_mode` at the start of every cycle without needing a restart.
+
+### Fixed
+- Resolved an issue where the add-on would consume 25% CPU when idling or failing.
+- Fixed a timing bug where the scrape would attempt to start before Browserless was fully ready.
+
+### Changed
+- Refined the "Green Button" download logic to ensure both Usage and Billing checkboxes are reliably toggled.
+
 ## [00.01.02] - 2026-02-12
 ### Changed
 - Converted add-on to a persistent background service.
