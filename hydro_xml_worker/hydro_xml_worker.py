@@ -6,7 +6,7 @@ import json
 from pyppeteer import connect
 
 # --- VERSIONING ---
-VERSION = "00.01.02"
+VERSION = "00.01.03"
 OPTIONS_PATH = "/data/options.json"
 DOWNLOAD_DIR = "/share/hydro_ottawa"
 
@@ -18,7 +18,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 async def download_hydro_data():
-    # Reload config inside the function to pick up any UI changes (like debug_mode)
+    # Reload config inside the function for live updates
     if os.path.exists(OPTIONS_PATH):
         with open(OPTIONS_PATH, 'r') as f:
             conf = json.load(f)
@@ -28,15 +28,13 @@ async def download_hydro_data():
         login_timeout = conf.get('login_timeout', 30)
         debug_mode = conf.get('debug_mode', False)
     else:
-        user_email = os.getenv('USER_EMAIL', 'placeholder@example.com')
-        user_pass = os.getenv('USER_PASS', 'placeholder')
-        browser_url = os.getenv('BROWSER_URL', 'ws://localhost:3000')
-        login_timeout = 30
-        debug_mode = True
+        logger.error("Config file not found. Using defaults.")
+        return
 
-    logger.info(f"Connecting to Browserless at {browser_url} (Debug: {debug_mode})")
+    logger.info(f"--- MILESTONE: Starting Scrape Process ---")
     
     try:
+        logger.info(f"DEBUG: Connecting to Browserless at {browser_url}")
         browser = await connect(browserWSEndpoint=browser_url)
         page = await browser.newPage()
         await page.setViewport({'width': 1280, 'height': 800})
@@ -48,14 +46,15 @@ async def download_hydro_data():
         })
 
         # 1. Login
-        logger.info(f"Opening portal for {user_email}...")
+        logger.info(f"DEBUG: Opening portal for {user_email}...")
         await page.goto("https://hydroottawa.savagedata.com/Connect/Authorize?returnUrl=https%3A%2F%2Fhydroottawa.savagedata.com%2F", 
                         {"waitUntil": "networkidle2"})
         
+        logger.info("DEBUG: Waiting for #userName selector...")
         await page.waitForSelector('#userName', {'timeout': login_timeout * 1000})
-        if debug_mode: await page.screenshot({'path': f'{DOWNLOAD_DIR}/debug_1_login.png'})
         
         # 2. Login Injection
+        logger.info("DEBUG: Injecting credentials...")
         await page.evaluate(f"""() => {{
             const e = document.querySelector('#userName');
             const p = document.querySelector('#exampleInputPassword');
@@ -70,9 +69,9 @@ async def download_hydro_data():
         }}""")
         
         await asyncio.sleep(10) 
-        if debug_mode: await page.screenshot({'path': f'{DOWNLOAD_DIR}/debug_2_dashboard.png'})
 
         # 3. Navigate to Download Page
+        logger.info("DEBUG: Looking for DownloadMyData link...")
         nav_success = await page.evaluate("""() => {
             const link = document.querySelector('a[href="DownloadMyData"]');
             if (link) { link.click(); return true; }
@@ -80,10 +79,9 @@ async def download_hydro_data():
         }""")
         
         if not nav_success:
-            raise Exception(f"Failed to find navigation link. URL: {page.url}")
+            raise Exception(f"Navigation failed. URL: {page.url}")
 
         await asyncio.sleep(8) 
-        if debug_mode: await page.screenshot({'path': f'{DOWNLOAD_DIR}/debug_3_export_screen.png'})
 
         # 4. Wiretap setup
         download_status = {"success": False}
@@ -91,7 +89,7 @@ async def download_hydro_data():
             if "api/Data/GetUsageData" in request.url:
                 auth = request.headers.get('authorization')
                 if auth:
-                    logger.info("!! Usage Data Intercepted !!")
+                    logger.info("DEBUG: Intercepted API call. Fetching XML...")
                     try:
                         resp = requests.get(request.url, headers={'Authorization': auth})
                         if resp.status_code == 200:
@@ -99,15 +97,15 @@ async def download_hydro_data():
                             with open(path, 'wb') as f:
                                 f.write(resp.content)
                             download_status["success"] = True
-                            logger.info(f"SUCCESS: File saved to {path}")
+                            logger.info(f"--- MILESTONE: SUCCESS: File saved to {path} ---")
                     except Exception as e:
                         logger.error(f"Interception failed: {e}")
 
         await page.setRequestInterception(True)
         page.on('request', lambda req: asyncio.ensure_future(intercept_request(req)) or asyncio.ensure_future(req.continue_()))
 
-        # 5. Trigger Green Button Download (Usage + Costs)
-        logger.info("Triggering data export sequence for Usage and Billing data...")
+        # 5. Trigger Green Button Download
+        logger.info("DEBUG: Clicking Usage/Billing and Green Button...")
         await page.evaluate("""async () => {
             const clickRadzenCheck = (inputId) => {
                 const input = document.getElementById(inputId);
@@ -119,7 +117,6 @@ async def download_hydro_data():
                     }
                 }
             };
-
             clickRadzenCheck('chkElectUsageData');
             clickRadzenCheck('chkBillingData');
 
@@ -133,48 +130,54 @@ async def download_hydro_data():
             });
 
             const btn = Array.from(document.querySelectorAll('button'))
-                             .find(b => b.querySelector('img[src*=\"gb_logo.png\"]'));
+                             .find(b => b.querySelector('img[src*="gb_logo.png"]'));
             if (btn) btn.click();
         }""")
 
-        for _ in range(25):
+        for i in range(25):
             if download_status["success"]: break
+            if i % 5 == 0: logger.info(f"DEBUG: Waiting for download ({i}/25)...")
             await asyncio.sleep(1)
 
     except Exception as e:
-        logger.error(f"Worker failed: {e}")
+        logger.error(f"--- MILESTONE: WORKER FAILED ---")
+        logger.error(f"Error Detail: {e}")
         if debug_mode:
-            await page.screenshot({'path': f'{DOWNLOAD_DIR}/error_v{VERSION}.png'})
+            await page.screenshot({'path': f'{DOWNLOAD_DIR}/error_latest.png'})
     finally:
         if 'browser' in locals():
+            logger.info("DEBUG: Closing browser.")
             await browser.close()
 
 async def main_loop():
     if not os.path.exists(DOWNLOAD_DIR):
         os.makedirs(DOWNLOAD_DIR)
 
-    logger.info("Hydro Ottawa Service starting...")
+    logger.info(f"Hydro Ottawa Continuous Service v{VERSION} Ready.")
 
     while True:
-        # Check config for scrape frequency
-        if os.path.exists(OPTIONS_PATH):
-            with open(OPTIONS_PATH, 'r') as f:
-                conf = json.load(f)
-            scrapes_per_day = conf.get('scrapes_per_day', 4)
-        else:
-            scrapes_per_day = 4
-        
-        # Calculate delay (Seconds in day / frequency)
-        sleep_seconds = 86400 / scrapes_per_day
-        
-        # Run the scraper
-        await download_hydro_data()
-        
-        logger.info(f"Run finished. Sleeping for {sleep_seconds/3600:.1f} hours...")
-        await asyncio.sleep(sleep_seconds)
+        try:
+            # Refresh frequency from config
+            if os.path.exists(OPTIONS_PATH):
+                with open(OPTIONS_PATH, 'r') as f:
+                    conf = json.load(f)
+                scrapes_per_day = conf.get('scrapes_per_day', 4)
+            else:
+                scrapes_per_day = 4
+            
+            # Execute
+            await download_hydro_data()
+            
+            # Sleep logic
+            sleep_seconds = 86400 / scrapes_per_day
+            logger.info(f"Zzz... Next scrape in {sleep_seconds/3600:.1f} hours.")
+            await asyncio.sleep(sleep_seconds)
+
+        except Exception as e:
+            logger.error(f"CRITICAL: Main Loop Crash: {e}")
+            # SAFETY SLEEP: Prevents 25% CPU busy-loop if something breaks
+            logger.info("Sleeping for 10 minutes before retry...")
+            await asyncio.sleep(600)
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main_loop())
-    except KeyboardInterrupt:
-        logger.info("Service interrupted by user.")
+    asyncio.run(main_loop())

@@ -1,6 +1,6 @@
 name: "Hydro Ottawa Scraper"
 description: "Automatically pulls Hydro Ottawa XML usage data for the Energy Dashboard"
-version: "00.01.02"
+version: "00.01.03"
 slug: "hydro_xml_worker"
 arch:
   - aarch64
