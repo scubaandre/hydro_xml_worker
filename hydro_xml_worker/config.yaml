@@ -1,12 +1,12 @@
 name: "Hydro Ottawa Scraper"
 description: "Automatically pulls Hydro Ottawa XML usage data for the Energy Dashboard"
-version: "00.01.01"
+version: "00.01.02"
 slug: "hydro_xml_worker"
 arch:
   - aarch64
   - amd64
-startup: "once"
-boot: "manual"
+startup: "services"
+boot: "auto"
 map:
   - "share:rw"
 options:
@@ -14,10 +14,12 @@ options:
   user_email: "your-email@example.com"
   user_pass: "your-password-here"
   login_timeout: 30
+  scrapes_per_day: 4
   debug_mode: false
 schema:
   browser_url: "match(^(ws|wss)://.*$)"
   user_email: "email"
   user_pass: "password"
   login_timeout: "int(10,120)"
+  scrapes_per_day: "int(1,24)"
   debug_mode: bool

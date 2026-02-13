@@ -1,5 +1,12 @@
 # Changelog
 
+## [00.01.02] - 2026-02-12
+### Changed
+- Converted add-on to a persistent background service.
+- Implemented internal scheduling based on `scrapes_per_day`.
+- Added `PYTHONUNBUFFERED` for real-time log streaming.
+- Improved logic for "Billing/Cost" checkbox selection.
+
 ## [00.01.01] - 2026-02-07
 ### Added
 - Support for including Billing/Cost data in the XML export.
