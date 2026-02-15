@@ -37,7 +37,9 @@ async def download_hydro_data():
         logger.debug("Debug mode enabled: Detailed logs will be shown.")
     else:
         logger.setLevel(logging.INFO)
-        logger.info(f"Starting Scrape Process")
+
+        # Always show this so we know the loop has started the task
+        logger.info("Starting Scrape Process...")
     
     try:
         # Use .debug() for technical background info
