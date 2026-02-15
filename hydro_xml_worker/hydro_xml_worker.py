@@ -6,29 +6,11 @@ import json
 from pyppeteer import connect
 
 # --- VERSIONING ---
-VERSION = "00.01.00"
+VERSION = "00.01.04"
 OPTIONS_PATH = "/data/options.json"
-
-# --- CONFIGURATION LOADING ---
-if os.path.exists(OPTIONS_PATH):
-    with open(OPTIONS_PATH, 'r') as f:
-        conf = json.load(f)
-    USER_EMAIL = conf.get('user_email')
-    USER_PASS = conf.get('user_pass')
-    BROWSER_URL = conf.get('browser_url', 'ws://homeassistant:3000')
-    LOGIN_TIMEOUT = conf.get('login_timeout', 30)
-    DEBUG_MODE = conf.get('debug_mode', False)
-else:
-    USER_EMAIL = os.getenv('USER_EMAIL', 'placeholder@example.com')
-    USER_PASS = os.getenv('USER_PASS', 'placeholder')
-    BROWSER_URL = os.getenv('BROWSER_URL', 'ws://localhost:3000')
-    LOGIN_TIMEOUT = 30
-    DEBUG_MODE = True
-
 DOWNLOAD_DIR = "/share/hydro_ottawa"
-if not os.path.exists(DOWNLOAD_DIR):
-    os.makedirs(DOWNLOAD_DIR)
 
+# --- LOGGER SETUP ---
 logging.basicConfig(
     level=logging.INFO, 
     format=f'%(asctime)s - [v{VERSION}] - %(levelname)s - %(message)s'
@@ -36,12 +18,40 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 async def download_hydro_data():
-    logger.info(f"Connecting to Browserless at {BROWSER_URL} (Debug: {DEBUG_MODE})")
+    # Reload config inside the function for live updates
+    if os.path.exists(OPTIONS_PATH):
+        with open(OPTIONS_PATH, 'r') as f:
+            conf = json.load(f)
+        user_email = conf.get('user_email')
+        user_pass = conf.get('user_pass')
+        browser_url = conf.get('browser_url', 'ws://homeassistant:3000')
+        login_timeout = conf.get('login_timeout', 30)
+        debug_mode = conf.get('debug_mode', False)
+    else:
+        logger.error("Config file not found. Using defaults.")
+        return
+
+    # --- DYNAMIC LOG LEVEL ---
+    if debug_mode:
+        logger.setLevel(logging.DEBUG)
+        logger.debug("Debug mode enabled: Detailed logs will be shown.")
+    else:
+        logger.setLevel(logging.INFO)
+
+        # Always show this so we know the loop has started the task
+        logger.info("Starting Scrape Process...")
+    
     try:
-        browser = await connect(browserWSEndpoint=BROWSER_URL)
+        # Use .debug() for technical background info
+        logger.debug(f"Connecting to Browserless at {browser_url}")
+        browser = await connect(browserWSEndpoint=browser_url)
+        
+        logger.debug("Browser connected. Opening new page and setting viewport...")
         page = await browser.newPage()
         await page.setViewport({'width': 1280, 'height': 800})
 
+        # This is a technical implementation detail, perfect for .debug()
+        logger.debug(f"Setting CDP download behavior to: {DOWNLOAD_DIR}")
         cdp = await page.target.createCDPSession()
         await cdp.send('Page.setDownloadBehavior', {
             'behavior': 'allow',
@@ -49,21 +59,22 @@ async def download_hydro_data():
         })
 
         # 1. Login
-        logger.info(f"Opening portal for {USER_EMAIL}...")
+        logger.debug(f"Opening portal for {user_email}...")
         await page.goto("https://hydroottawa.savagedata.com/Connect/Authorize?returnUrl=https%3A%2F%2Fhydroottawa.savagedata.com%2F", 
                         {"waitUntil": "networkidle2"})
         
-        await page.waitForSelector('#userName', {'timeout': LOGIN_TIMEOUT * 1000})
-        if DEBUG_MODE: await page.screenshot({'path': f'{DOWNLOAD_DIR}/debug_1_login.png'})
+        logger.debug("Waiting for #userName selector...")
+        await page.waitForSelector('#userName', {'timeout': login_timeout * 1000})
         
         # 2. Login Injection
+        logger.debug("Injecting credentials...")
         await page.evaluate(f"""() => {{
             const e = document.querySelector('#userName');
             const p = document.querySelector('#exampleInputPassword');
             const btn = document.querySelector('a.btn-primary');
             if (e && p && btn) {{
-                e.value = '{USER_EMAIL}';
-                p.value = '{USER_PASS}';
+                e.value = '{user_email}';
+                p.value = '{user_pass}';
                 ['input', 'change', 'blur'].forEach(v => e.dispatchEvent(new Event(v, {{bubbles:true}})));
                 ['input', 'change', 'blur'].forEach(v => p.dispatchEvent(new Event(v, {{bubbles:true}})));
                 btn.click();
@@ -71,9 +82,9 @@ async def download_hydro_data():
         }}""")
         
         await asyncio.sleep(10) 
-        if DEBUG_MODE: await page.screenshot({'path': f'{DOWNLOAD_DIR}/debug_2_dashboard.png'})
 
         # 3. Navigate to Download Page
+        logger.debug("Looking for DownloadMyData link...")
         nav_success = await page.evaluate("""() => {
             const link = document.querySelector('a[href="DownloadMyData"]');
             if (link) { link.click(); return true; }
@@ -81,10 +92,9 @@ async def download_hydro_data():
         }""")
         
         if not nav_success:
-            raise Exception(f"Failed to find navigation link. URL: {page.url}")
+            raise Exception(f"Navigation failed. URL: {page.url}")
 
         await asyncio.sleep(8) 
-        if DEBUG_MODE: await page.screenshot({'path': f'{DOWNLOAD_DIR}/debug_3_export_screen.png'})
 
         # 4. Wiretap setup
         download_status = {"success": False}
@@ -92,7 +102,7 @@ async def download_hydro_data():
             if "api/Data/GetUsageData" in request.url:
                 auth = request.headers.get('authorization')
                 if auth:
-                    logger.info("!! Usage Data Intercepted !!")
+                    logger.debug("Intercepted API call. Fetching XML...")
                     try:
                         resp = requests.get(request.url, headers={'Authorization': auth})
                         if resp.status_code == 200:
@@ -210,14 +220,28 @@ async def download_hydro_data():
         # 5. Trigger
         logger.info("Triggering XML export...")
         await page.evaluate("""async () => {
-            const cb = document.querySelector('.rz-chkbox-box');
-            if (cb) cb.click();
-            
+            const clickRadzenCheck = (inputId) => {
+                const input = document.getElementById(inputId);
+                if (input) {
+                    const container = input.closest('.rz-chkbox');
+                    const box = container ? container.querySelector('.rz-chkbox-box') : null;
+                    if (box && !box.classList.contains('rz-state-active')) {
+                        box.click();
+                    }
+                }
+            };
+            clickRadzenCheck('chkElectUsageData');
+            clickRadzenCheck('chkBillingData');
+
             await new Promise(r => {
                 const i = setInterval(() => {
-                    if (!document.querySelector('.rz-progressbar')) { clearInterval(i); r(); }
+                    if (!document.querySelector('.rz-progressbar')) { 
+                        clearInterval(i); 
+                        r(); 
+                    }
                 }, 500);
             });
+
             const btn = Array.from(document.querySelectorAll('button'))
                              .find(b => b.querySelector('img[src*="gb_logo.png"]'));
             if (btn) btn.click();
@@ -245,14 +269,48 @@ async def download_hydro_data():
 
         for _ in range(25):
             if download_status["success"]: break
+            if i % 5 == 0: logger.debug(f"Waiting for download ({i}/25)...")
             await asyncio.sleep(1)
 
     except Exception as e:
-        logger.error(f"Worker failed: {e}")
-        await page.screenshot({'path': f'{DOWNLOAD_DIR}/error_v{VERSION}.png'})
+        logger.error(f"WORKER FAILED")
+        logger.error(f"Error Detail: {e}")
+        if debug_mode:
+            await page.screenshot({'path': f'{DOWNLOAD_DIR}/error_latest.png'})
     finally:
         if 'browser' in locals():
+            logger.debug("Closing browser.")
             await browser.close()
+
+async def main_loop():
+    if not os.path.exists(DOWNLOAD_DIR):
+        os.makedirs(DOWNLOAD_DIR)
+
+    logger.info(f"Hydro Ottawa xml scarper app v{VERSION} Ready.")
+
+    while True:
+        try:
+            # Refresh frequency from config
+            if os.path.exists(OPTIONS_PATH):
+                with open(OPTIONS_PATH, 'r') as f:
+                    conf = json.load(f)
+                scrapes_per_day = conf.get('scrapes_per_day', 4)
+            else:
+                scrapes_per_day = 4
+            
+            # Execute
+            await download_hydro_data()
+            
+            # Sleep logic
+            sleep_seconds = 86400 / scrapes_per_day
+            logger.info(f"Next scrape in {sleep_seconds/3600:.1f} hours.")
+            await asyncio.sleep(sleep_seconds)
+
+        except Exception as e:
+            logger.error(f"CRITICAL: Main Loop Crash: {e}")
+            # SAFETY SLEEP: Prevents 25% CPU busy-loop if something breaks
+            logger.info("Sleeping for 10 minutes before retry...")
+            await asyncio.sleep(600)
 
 if __name__ == "__main__":
     asyncio.run(download_hydro_data())
