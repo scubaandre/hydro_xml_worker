@@ -6,7 +6,7 @@ import json
 from pyppeteer import connect
 
 # --- VERSIONING ---
-VERSION = "00.01.03"
+VERSION = "00.01.04"
 OPTIONS_PATH = "/data/options.json"
 DOWNLOAD_DIR = "/share/hydro_ottawa"
 
@@ -31,14 +31,25 @@ async def download_hydro_data():
         logger.error("Config file not found. Using defaults.")
         return
 
-    logger.info(f"--- MILESTONE: Starting Scrape Process ---")
+    # --- DYNAMIC LOG LEVEL ---
+    if debug_mode:
+        logger.setLevel(logging.DEBUG)
+        logger.debug("Debug mode enabled: Detailed logs will be shown.")
+    else:
+        logger.setLevel(logging.INFO)
+        logger.info(f"Starting Scrape Process")
     
     try:
-        logger.info(f"DEBUG: Connecting to Browserless at {browser_url}")
+        # Use .debug() for technical background info
+        logger.debug(f"Connecting to Browserless at {browser_url}")
         browser = await connect(browserWSEndpoint=browser_url)
+        
+        logger.debug("Browser connected. Opening new page and setting viewport...")
         page = await browser.newPage()
         await page.setViewport({'width': 1280, 'height': 800})
 
+        # This is a technical implementation detail, perfect for .debug()
+        logger.debug(f"Setting CDP download behavior to: {DOWNLOAD_DIR}")
         cdp = await page.target.createCDPSession()
         await cdp.send('Page.setDownloadBehavior', {
             'behavior': 'allow',
@@ -46,15 +57,15 @@ async def download_hydro_data():
         })
 
         # 1. Login
-        logger.info(f"DEBUG: Opening portal for {user_email}...")
+        logger.debug(f"Opening portal for {user_email}...")
         await page.goto("https://hydroottawa.savagedata.com/Connect/Authorize?returnUrl=https%3A%2F%2Fhydroottawa.savagedata.com%2F", 
                         {"waitUntil": "networkidle2"})
         
-        logger.info("DEBUG: Waiting for #userName selector...")
+        logger.debug("Waiting for #userName selector...")
         await page.waitForSelector('#userName', {'timeout': login_timeout * 1000})
         
         # 2. Login Injection
-        logger.info("DEBUG: Injecting credentials...")
+        logger.debug("Injecting credentials...")
         await page.evaluate(f"""() => {{
             const e = document.querySelector('#userName');
             const p = document.querySelector('#exampleInputPassword');
@@ -71,7 +82,7 @@ async def download_hydro_data():
         await asyncio.sleep(10) 
 
         # 3. Navigate to Download Page
-        logger.info("DEBUG: Looking for DownloadMyData link...")
+        logger.debug("Looking for DownloadMyData link...")
         nav_success = await page.evaluate("""() => {
             const link = document.querySelector('a[href="DownloadMyData"]');
             if (link) { link.click(); return true; }
@@ -89,7 +100,7 @@ async def download_hydro_data():
             if "api/Data/GetUsageData" in request.url:
                 auth = request.headers.get('authorization')
                 if auth:
-                    logger.info("DEBUG: Intercepted API call. Fetching XML...")
+                    logger.debug("Intercepted API call. Fetching XML...")
                     try:
                         resp = requests.get(request.url, headers={'Authorization': auth})
                         if resp.status_code == 200:
@@ -97,7 +108,7 @@ async def download_hydro_data():
                             with open(path, 'wb') as f:
                                 f.write(resp.content)
                             download_status["success"] = True
-                            logger.info(f"--- MILESTONE: SUCCESS: File saved to {path} ---")
+                            logger.info(f"SUCCESS: File saved to {path}")
                     except Exception as e:
                         logger.error(f"Interception failed: {e}")
 
@@ -105,7 +116,7 @@ async def download_hydro_data():
         page.on('request', lambda req: asyncio.ensure_future(intercept_request(req)) or asyncio.ensure_future(req.continue_()))
 
         # 5. Trigger Green Button Download
-        logger.info("DEBUG: Clicking Usage/Billing and Green Button...")
+        logger.debug("Clicking Usage/Billing and Green Button...")
         await page.evaluate("""async () => {
             const clickRadzenCheck = (inputId) => {
                 const input = document.getElementById(inputId);
@@ -136,24 +147,24 @@ async def download_hydro_data():
 
         for i in range(25):
             if download_status["success"]: break
-            if i % 5 == 0: logger.info(f"DEBUG: Waiting for download ({i}/25)...")
+            if i % 5 == 0: logger.debug(f"Waiting for download ({i}/25)...")
             await asyncio.sleep(1)
 
     except Exception as e:
-        logger.error(f"--- MILESTONE: WORKER FAILED ---")
+        logger.error(f"WORKER FAILED")
         logger.error(f"Error Detail: {e}")
         if debug_mode:
             await page.screenshot({'path': f'{DOWNLOAD_DIR}/error_latest.png'})
     finally:
         if 'browser' in locals():
-            logger.info("DEBUG: Closing browser.")
+            logger.debug("Closing browser.")
             await browser.close()
 
 async def main_loop():
     if not os.path.exists(DOWNLOAD_DIR):
         os.makedirs(DOWNLOAD_DIR)
 
-    logger.info(f"Hydro Ottawa Continuous Service v{VERSION} Ready.")
+    logger.info(f"Hydro Ottawa xml scarper app v{VERSION} Ready.")
 
     while True:
         try:
@@ -170,7 +181,7 @@ async def main_loop():
             
             # Sleep logic
             sleep_seconds = 86400 / scrapes_per_day
-            logger.info(f"Zzz... Next scrape in {sleep_seconds/3600:.1f} hours.")
+            logger.info(f"Next scrape in {sleep_seconds/3600:.1f} hours.")
             await asyncio.sleep(sleep_seconds)
 
         except Exception as e:

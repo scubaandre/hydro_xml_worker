@@ -1,5 +1,9 @@
 # Changelog
 
+## [00.01.04] - 2026-02-15
+### Fixed
+- debug logging fixed 
+
 ## [00.01.03] - 2026-02-13
 ### Added
 - **Milestone Debugging:** Detailed log output for every stage of the scraping process (Login, Navigation, Interception).

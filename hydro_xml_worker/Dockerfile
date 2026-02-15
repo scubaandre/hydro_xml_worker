@@ -2,7 +2,7 @@ FROM python:3.11-alpine3.18
 
 LABEL \
   io.hass.name="Hydro Ottawa Scraper" \
-  io.hass.version="00.01.03" \
+  io.hass.version="00.01.04" \
   io.hass.type="addon"
 
 RUN apk add --no-cache bash curl \
