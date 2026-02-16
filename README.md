@@ -1,18 +1,19 @@
 # Hydro Ottawa xml scaper app (add-on)
 
-[![GitHub Release](https://img.shields.io/github/release/rhounsell/home-assistant-green-button.svg?style=for-the-badge)](https://github.com/scubaandre/hydro_xml_worker/releases)
-[![GitHub Activity](https://img.shields.io/github/commit-activity/y/scubaandre/hydro_xml_worker?style=for-the-badge)](https://github.com/scubaandre/hydro_xml_worker/commits)
+[![GitHub Release](https://img.shields.io/github/release/rhounsell/home-assistant-green-button.svg?style=for-the-badge)](https://github.com/rhounsell/home-assistant-green-button/releases)
+[![GitHub Activity](https://img.shields.io/github/commit-activity/y/rhounsell/home-assistant-green-button?style=for-the-badge)](https://github.com/rhounsell/home-assistant-green-button/commits)
+[![License][license-shield]](LICENSE)
 
-A solution to automate the extraction of electricity usage and cost data from the Hydro Ottawa portal (`hydroottawa.savagedata.com`) to an xml file.
+A complete solution to automate the extraction of electricity usage and cost data from the Hydro Ottawa portal (`hydroottawa.savagedata.com`) directly into the Home Assistant Energy Dashboard.
 
 ## ⚡ Overview
-This repository provides a Home Assistant Add-on that works in tandem with the **Green Button** standard. It eliminates the need for manual downloads by running a "headless" background scraper that simulates a login, intercepts the data stream, and stores an xml file.
+This repository provides a Home Assistant Add-on that works in tandem with the **Green Button** standard. It eliminates the need for manual downloads by running a "headless" background scraper that simulates a login, intercepts the data stream, and provides it to Home Assistant in real-time.
 
 ### The Stack:
 * **The Scraper (Add-on):** A persistent service that logs in and exports Green Button XML data.
 * **Browserless:** The Chromium engine that powers the headless navigation.
 * **Folder Watcher:** Monitors for new data files instantly.
-* **Green Button Integration:** Processes the XML files into Energy Dashboard sensors. [Green Button Integration](https://github.com/rhounsell/home-assistant-green-button)
+* **Green Button Integration:** Processes the XML files into Energy Dashboard sensors.
 
 ---
 
