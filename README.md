@@ -1,5 +1,9 @@
 # Hydro Ottawa xml scaper app (add-on)
 
+[![GitHub Release](https://img.shields.io/github/release/rhounsell/home-assistant-green-button.svg?style=for-the-badge)](https://github.com/rhounsell/home-assistant-green-button/releases)
+[![GitHub Activity](https://img.shields.io/github/commit-activity/y/rhounsell/home-assistant-green-button?style=for-the-badge)](https://github.com/rhounsell/home-assistant-green-button/commits)
+[![License][license-shield]](LICENSE)
+
 A complete solution to automate the extraction of electricity usage and cost data from the Hydro Ottawa portal (`hydroottawa.savagedata.com`) directly into the Home Assistant Energy Dashboard.
 
 ## ⚡ Overview
