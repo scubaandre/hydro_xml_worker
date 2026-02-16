@@ -6,7 +6,7 @@ import json
 from pyppeteer import connect
 
 # --- VERSIONING ---
-VERSION = "00.01.04"
+VERSION = "00.01.05"
 OPTIONS_PATH = "/data/options.json"
 DOWNLOAD_DIR = "/share/hydro_ottawa"
 
