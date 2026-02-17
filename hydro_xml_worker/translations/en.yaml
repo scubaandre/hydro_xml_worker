@@ -1,0 +1,19 @@
+configuration:
+  browser_url:
+    name: "Browserless Connection URL"
+    description: "The WebSocket address for your Browserless container. Usually ws://homeassistant:3000 or ws://[YOUR_IP]:3000"
+  user_email:
+    name: "Hydro Ottawa Email"
+    description: "The email address you use to log into the Hydro Ottawa / SavageData portal."
+  user_pass:
+    name: "Hydro Ottawa Password"
+    description: "Your portal password. This is stored securely by Home Assistant."
+  login_timeout:
+    name: "Login Timeout"
+    description: "How many seconds to wait for the portal to respond before giving up (Default: 30)."
+  scrapes_per_day:
+    name: "Scrapes Per Day"
+    description: "How many times every 24 hours the script should check for new data. 4 is recommended (every 6 hours)."
+  debug_mode:
+    name: "Debug Mode"
+    description: "Enable this to see detailed logs and save screenshots of the login process to the /share folder."

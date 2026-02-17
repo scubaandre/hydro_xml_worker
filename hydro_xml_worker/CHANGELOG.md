@@ -1,5 +1,9 @@
 # Changelog
 
+## [00.01.05] - 2026-02-16
+### Added
+- better configuration field description in EN and FR
+
 ## [00.01.04] - 2026-02-15
 ### Fixed
 - debug logging fixed 
