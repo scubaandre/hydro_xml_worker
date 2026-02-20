@@ -1,13 +1,12 @@
-# Hydro Ottawa xml scaper app (add-on)
+# Hydro Ottawa xml scraper app (add-on)
 
-[![GitHub Release](https://img.shields.io/github/release/rhounsell/home-assistant-green-button.svg?style=for-the-badge)](https://github.com/rhounsell/home-assistant-green-button/releases)
-[![GitHub Activity](https://img.shields.io/github/commit-activity/y/rhounsell/home-assistant-green-button?style=for-the-badge)](https://github.com/rhounsell/home-assistant-green-button/commits)
+[![GitHub Activity][activity-shield]](commits)
 [![License][license-shield]](LICENSE)
 
-A complete solution to automate the extraction of electricity usage and cost data from the Hydro Ottawa portal (`hydroottawa.savagedata.com`) directly into the Home Assistant Energy Dashboard.
+A solution to automate the extraction of electricity usage and cost data from the Hydro Ottawa Green Button portal (https://hydroottawa.savagedata.com) directly into the Home Assistant Energy Dashboard.
 
 ## ⚡ Overview
-This repository provides a Home Assistant Add-on that works in tandem with the **Green Button** standard. It eliminates the need for manual downloads by running a "headless" background scraper that simulates a login, intercepts the data stream, and provides it to Home Assistant in real-time.
+This repository provides a Home Assistant Add-on that eliminates the need for manual downloads by running a "headless" background scraper that simulates a login, intercepts the data stream, and provides it to Home Assistant in real-time.
 
 ### The Stack:
 * **The Scraper (Add-on):** A persistent service that logs in and exports Green Button XML data.
@@ -18,7 +17,7 @@ This repository provides a Home Assistant Add-on that works in tandem with the *
 ---
 
 ## 🚀 Quick Start
-1. **Install Prerequisites:** You will need the **Browserless** add-on and the **Green Button** HACS integration.
+1. **Install Prerequisites:** You will need the **Browserless** add-on and the **Green Button** integration.
 2. **Configure Folder Watcher:** Add the `/share/hydro_ottawa` path to your `configuration.yaml`.
 3. **Install the Add-on:** Located in the `hydro_xml_worker` directory of this repo.
 4. **Automate the Import:** Use the provided event-based automation to trigger imports whenever the scraper finishes its run.
@@ -35,3 +34,6 @@ This repository provides a Home Assistant Add-on that works in tandem with the *
 ---
 
 *Designed, supervised by humans. Created by AI.* 🤖🤝👤
+
+[activity-shield]: https://img.shields.io/github/commit-activity/y/scubaandre/hydro_xml_worker?style=for-the-badge
+[license-shield]: https://img.shields.io/badge/License-MIT-yellow.svg
