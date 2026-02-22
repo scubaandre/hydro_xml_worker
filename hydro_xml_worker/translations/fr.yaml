@@ -8,6 +8,9 @@ configuration:
   user_pass:
     name: "Mot de passe Hydro Ottawa"
     description: "Votre mot de passe du portail. Stocké de manière sécurisée par Home Assistant."
+  days_to_export:
+    name: "Historique à exporter (Jours)"
+    description: "Nombre de jours d'historique à récupérer. Augmentez ceci en cas d'interruption (Défaut : 2)."
   login_timeout:
     name: "Délai d'attente de connexion"
     description: "Nombre de secondes à attendre que le portail réponde avant d'abandonner (Défaut : 30)."

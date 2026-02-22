@@ -1,6 +1,6 @@
 name: "Hydro Ottawa Scraper"
 description: "Automatically pulls Hydro Ottawa XML usage data for the Energy Dashboard"
-version: "00.01.05"
+version: "0.1.6"
 slug: "hydro_xml_worker"
 arch:
   - aarch64
@@ -11,6 +11,7 @@ options:
   browser_url: "ws://homeassistant:3000"
   user_email: null
   user_pass: null
+  days_to_export: 2
   login_timeout: 30
   scrapes_per_day: 6
   debug_mode: false
@@ -18,6 +19,7 @@ schema:
   browser_url: "match(^(ws|wss)://.*$)"
   user_email: email
   user_pass: password
+  days_to_export: int(2,90)
   login_timeout: "int(10,120)"
   scrapes_per_day: "int(1,24)"
   debug_mode: bool

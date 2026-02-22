@@ -3,10 +3,11 @@ import os
 import logging
 import requests
 import json
+from datetime import datetime, timedelta
 from pyppeteer import connect
 
 # --- VERSIONING ---
-VERSION = "00.01.05"
+VERSION = "0.1.6"
 OPTIONS_PATH = "/data/options.json"
 DOWNLOAD_DIR = "/share/hydro_ottawa"
 
@@ -27,6 +28,7 @@ async def download_hydro_data():
         browser_url = conf.get('browser_url', 'ws://homeassistant:3000')
         login_timeout = conf.get('login_timeout', 30)
         debug_mode = conf.get('debug_mode', False)
+        days_to_export = conf.get('days_to_export', 2)
     else:
         logger.error("Config file not found. Exiting scrape.")
         return
@@ -37,11 +39,16 @@ async def download_hydro_data():
         logger.debug("Debug mode enabled: Detailed logs will be shown.")
     else:
         logger.setLevel(logging.INFO)
-
-    logger.info("Starting Scrape Process...")
-    
+     
     try:
-        logger.debug(f"Connecting to Browserless at {browser_url}")
+        # 0. Calculate our target date for export based on config
+        target_date_obj = datetime.now() - timedelta(days=days_to_export)
+        from_date_str = target_date_obj.strftime('%Y-%m-%d')
+
+        logger.info(f"Starting Scrape Process (Fetching history back to {from_date_str})")
+
+        # 1. Connect to Browserless
+        logger.debug(f"Connecting to Browserless app at {browser_url}")
         browser = await connect(browserWSEndpoint=browser_url)
         
         page = await browser.newPage()
@@ -53,15 +60,16 @@ async def download_hydro_data():
             'downloadPath': DOWNLOAD_DIR
         })
 
-        # 1. Login
+        # 2. Navigate to Login Page
         logger.debug(f"Opening portal for {user_email}...")
         await page.goto("https://hydroottawa.savagedata.com/Connect/Authorize?returnUrl=https%3A%2F%2Fhydroottawa.savagedata.com%2F", 
                         {"waitUntil": "networkidle2"})
         
+        logger.debug(f"Waiting for page to show up")
         await page.waitForSelector('#userName', {'timeout': login_timeout * 1000})
         
-        # 2. Login Injection
-        logger.debug("Injecting credentials...")
+        # 3. Enter Credentials and Login
+        logger.debug("Entering credentials...")
         await page.evaluate(f"""() => {{
             const e = document.querySelector('#userName');
             const p = document.querySelector('#exampleInputPassword');
@@ -77,7 +85,7 @@ async def download_hydro_data():
         
         await asyncio.sleep(10) 
 
-        # 3. Navigate to Download Page
+        # 4. Navigate to Download page
         logger.debug("Looking for DownloadMyData link...")
         nav_success = await page.evaluate("""() => {{
             const link = document.querySelector('a[href="DownloadMyData"]');
@@ -88,9 +96,9 @@ async def download_hydro_data():
         if not nav_success:
             raise Exception(f"Navigation failed. URL: {page.url}")
 
-        await asyncio.sleep(8) 
+        await asyncio.sleep(10) 
 
-        # 4. Wiretap setup
+        # 5. Intercept API call to fetch XML data 
         download_status = {"success": False}
         async def intercept_request(request):
             if "api/Data/GetUsageData" in request.url:
@@ -111,35 +119,49 @@ async def download_hydro_data():
         await page.setRequestInterception(True)
         page.on('request', lambda req: asyncio.ensure_future(intercept_request(req)) or asyncio.ensure_future(req.continue_()))
 
-        # 5. Trigger Green Button Download
-        logger.debug("Clicking Usage/Billing and Green Button...")
-        await page.evaluate("""async () => {
-            const clickRadzenCheck = (inputId) => {
+        # 6. Click the necessary checkboxes, set the date, and export
+        logger.debug(f"Setting Start Date to {from_date_str} and triggering export...")
+        
+        await page.evaluate(f"""async () => {{
+            const dateInput = document.querySelector('.rz-datepicker input');
+            if (dateInput) {{
+                dateInput.focus();
+                dateInput.value = '{from_date_str}';
+                // Trigger events so the website's framework (Blazor) notices the change
+                dateInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                dateInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                dateInput.blur();
+            }}
+
+            const clickRadzenCheck = (inputId) => {{
                 const input = document.getElementById(inputId);
-                if (input) {
+                if (input) {{
                     const container = input.closest('.rz-chkbox');
                     const box = container ? container.querySelector('.rz-chkbox-box') : null;
-                    if (box && !box.classList.contains('rz-state-active')) {
+                    if (box && !box.classList.contains('rz-state-active')) {{
                         box.click();
-                    }
-                }
-            };
+                    }}
+                }}
+            }};
+            
             clickRadzenCheck('chkElectUsageData');
             clickRadzenCheck('chkBillingData');
 
-            await new Promise(r => {
-                const i = setInterval(() => {
-                    if (!document.querySelector('.rz-progressbar')) { 
+            // Wait for progress bar to disappear
+            await new Promise(r => {{
+                const i = setInterval(() => {{
+                    if (!document.querySelector('.rz-progressbar')) {{ 
                         clearInterval(i); 
                         r(); 
-                    }
-                }, 500);
-            });
+                    }}
+                }}, 500);
+            }});
 
+            // Click the Green Button logo
             const btn = Array.from(document.querySelectorAll('button'))
                              .find(b => b.querySelector('img[src*="gb_logo.png"]'));
             if (btn) btn.click();
-        }""")
+        }}""")
 
         for i in range(25):
             if download_status["success"]: break
