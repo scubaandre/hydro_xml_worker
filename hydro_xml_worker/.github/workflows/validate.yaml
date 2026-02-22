@@ -1,0 +1,41 @@
+name: "Validate Add-on"
+
+on:
+  push:
+    branches: [ "main", "dev" ]
+  pull_request:
+    branches: [ "main", "dev" ]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Check Python Syntax
+        run: |
+          # This finds all .py files and checks them for syntax errors
+          python -m py_compile *.py
+
+      - name: Validate YAML files
+        run: |
+          # This ensures your config and translations are readable
+          python -c "import yaml; yaml.safe_load(open('config.yaml'))"
+          python -c "import yaml; yaml.safe_load(open('translations/en.yaml'))"
+          python -c "import yaml; yaml.safe_load(open('translations/fr.yaml'))"
+
+      - name: Verify Version Sync
+        run: |
+          # A 'Butta' check to ensure config.yaml and script versions match
+          CONFIG_VER=$(grep "version:" config.yaml | awk '{print $2}' | tr -d '"')
+          SCRIPT_VER=$(grep "VERSION =" hydro_xml_worker.py | awk -F'"' '{print $2}')
+          if [ "$CONFIG_VER" != "$SCRIPT_VER" ]; then
+            echo "Version mismatch! Config: $CONFIG_VER vs Script: $SCRIPT_VER"
+            exit 1
+          fi
