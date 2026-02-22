@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.6] - 2026-02-21
+
+### Added
+- **Historical Export:** Added `days_to_export` configuration option. Users can now specify how many days of history to pull (configurable between 2 and 90 days).
+- **Date Picker Automation:** The scraper now automatically calculates and injects the start date into the Hydro Ottawa portal using JavaScript event bubbling to ensure the Blazor framework registers the change.
+
+### Fixed
+- **Syntax Error:** Resolved an "unmatched bracket" error in the JavaScript evaluation block that was causing a `SyntaxError` on startup.
+- **Versioning Standard:** Transitioned from `00.01.05` to standard Semantic Versioning `0.1.6` for better compatibility with automation tools.
+- **Loop Reliability:** Fixed a variable reference error (`i` vs `_`) in the download wait-loop and improved the main loop's crash recovery logic.
+
+### Changed
+- **Config UI:** Enhanced the configuration page with detailed descriptions for each variable to improve the user onboarding experience.
+- **Logging:** Optimized logging levels; technical connection details moved to `DEBUG`, while milestones remain in `INFO`.
+
 ## [00.01.05] - 2026-02-16
 ### Added
 - better configuration field description in EN and FR
