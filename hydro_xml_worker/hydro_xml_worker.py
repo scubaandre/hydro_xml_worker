@@ -8,7 +8,7 @@ import aiohttp
 from pyppeteer import connect
 
 # --- CONFIG ---
-VERSION = "0.1.8"
+VERSION = "0.1.8-2"
 OPTIONS_PATH = "/data/options.json"
 DOWNLOAD_DIR = "/share/hydro_ottawa"
 
@@ -90,25 +90,37 @@ async def download_hydro_data():
         )
         await debug_screenshot(page, "login_page_loaded")
 
-        # If already logged in, URL may not be the authorize page
-        if "Authorize" in page.url:
-            logger.debug("Waiting for login form...")
-            await page.waitForSelector("#userName", {"timeout": login_timeout * 1000})
+        # --- LOGIN SEQUENCE (patched) ---
 
-            # 3. Enter Credentials and Login using native typing/clicking
-            logger.debug("Entering credentials...")
-            await page.type("#userName", user_email, {"delay": 20})
-            await page.type("#exampleInputPassword", user_pass, {"delay": 20})
-            await debug_screenshot(page, "credentials_entered")
+        # Wait for Blazor to initialize (critical for Radzen/Blazor apps)
+        await page.waitForFunction(
+            "() => window.Blazor !== undefined",
+            timeout=15000
+        )
+        await asyncio.sleep(0.5)  # allow hydration to finish
 
-            await page.click("a.btn-primary")
+        # Wait for username, password, and login button to be visible
+        await page.waitForSelector("#userName", {"timeout": login_timeout * 1000, "visible": True})
+        await page.waitForSelector("#exampleInputPassword", {"timeout": login_timeout * 1000, "visible": True})
+        await page.waitForSelector("a.btn-primary", {"timeout": login_timeout * 1000, "visible": True})
 
-            logger.debug("Waiting for post-login navigation...")
-            await page.waitForNavigation({"waitUntil": "networkidle2", "timeout": login_timeout * 1000})
-            await debug_screenshot(page, "post_login")
-        else:
-            logger.info("Session appears already authenticated; skipping login step.")
-            await debug_screenshot(page, "session_reused")
+        await debug_screenshot(page, "login_ready")
+
+        # Type credentials
+        await page.type("#userName", user_email, {"delay": 20})
+        await page.type("#exampleInputPassword", user_pass, {"delay": 20})
+        await debug_screenshot(page, "credentials_entered")
+
+        # Give Blazor time to bind the values
+        await asyncio.sleep(0.5)
+
+        # Click login button
+        await page.click("a.btn-primary")
+        await debug_screenshot(page, "login_clicked")
+
+        # Wait for navigation to complete
+        await page.waitForNavigation({"waitUntil": "networkidle2", "timeout": login_timeout * 1000})
+        await debug_screenshot(page, "post_login")
 
         # 4. Navigate to Download page
         logger.debug("Looking for DownloadMyData link...")
