@@ -2,13 +2,12 @@ FROM python:3.11-alpine3.18
 
 LABEL \
   io.hass.name="Hydro Ottawa Scraper" \
-  io.hass.version="0.1.8" \
+  io.hass.version="0.1.8-1" \
   io.hass.type="addon"
 
 RUN apk add --no-cache bash curl \
-    && pip install --no-cache-dir requests pyppeteer
+    && pip install --no-cache-dir requests pyppeteer aiohttp
 
-# Ensures logs are sent to the console immediately
 ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
