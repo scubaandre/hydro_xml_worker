@@ -4,11 +4,11 @@ import logging
 import os
 from datetime import datetime, timedelta
 
-import requests
+import aiohttp
 from pyppeteer import connect
 
 # --- CONFIG ---
-VERSION = "0.1.6"
+VERSION = "0.1.8"
 OPTIONS_PATH = "/data/options.json"
 DOWNLOAD_DIR = "/share/hydro_ottawa"
 
@@ -42,8 +42,30 @@ async def download_hydro_data():
     else:
         logger.setLevel(logging.INFO)
 
+    # --- SCREENSHOT SYSTEM ---
+    screenshot_counter = 0
+
+    def next_screenshot_name():
+        nonlocal screenshot_counter
+        screenshot_counter += 1
+        return os.path.join(DOWNLOAD_DIR, f"debug_{screenshot_counter:02d}.png")
+
+    async def debug_screenshot(page, label=""):
+        if not debug_mode:
+            return
+        try:
+            name = next_screenshot_name()
+            if label:
+                logger.debug(f"Capturing screenshot: {label} → {name}")
+            else:
+                logger.debug(f"Capturing screenshot → {name}")
+            await page.screenshot({"path": name})
+        except Exception as e:
+            logger.debug(f"Failed to capture screenshot: {e}")
+
     browser = None
     page = None
+
     try:
         # 0. Calculate our target date for export based on config
         target_date_obj = datetime.now() - timedelta(days=days_to_export)
@@ -60,84 +82,88 @@ async def download_hydro_data():
         page = await browser.newPage()
         await page.setViewport({"width": 1280, "height": 800})
 
-        cdp = await page.target.createCDPSession()
-        await cdp.send(
-            "Page.setDownloadBehavior",
-            {"behavior": "allow", "downloadPath": DOWNLOAD_DIR},
-        )
-
         # 2. Navigate to Login Page
         logger.debug(f"Opening portal for {user_email}...")
         await page.goto(
             "https://hydroottawa.savagedata.com/Connect/Authorize?returnUrl=https%3A%2F%2Fhydroottawa.savagedata.com%2F",
             {"waitUntil": "networkidle2"},
         )
+        await debug_screenshot(page, "login_page_loaded")
 
-        logger.debug(f"Waiting for page to show up")
-        await page.waitForSelector("#userName", {"timeout": login_timeout * 1000})
+        # If already logged in, URL may not be the authorize page
+        if "Authorize" in page.url:
+            logger.debug("Waiting for login form...")
+            await page.waitForSelector("#userName", {"timeout": login_timeout * 1000})
 
-        # 3. Enter Credentials and Login
-        logger.debug("Entering credentials...")
-        await page.evaluate(
-            f"""() => {{
-            const e = document.querySelector('#userName');
-            const p = document.querySelector('#exampleInputPassword');
-            const btn = document.querySelector('a.btn-primary');
-            if (e && p && btn) {{
-                e.value = '{user_email}';
-                p.value = '{user_pass}';
-                ['input', 'change', 'blur'].forEach(v => e.dispatchEvent(new Event(v, {{bubbles:true}})));
-                ['input', 'change', 'blur'].forEach(v => p.dispatchEvent(new Event(v, {{bubbles:true}})));
-                btn.click();
-            }}
-        }}"""
-        )
+            # 3. Enter Credentials and Login using native typing/clicking
+            logger.debug("Entering credentials...")
+            await page.type("#userName", user_email, {"delay": 20})
+            await page.type("#exampleInputPassword", user_pass, {"delay": 20})
+            await debug_screenshot(page, "credentials_entered")
 
-        await asyncio.sleep(10)
+            await page.click("a.btn-primary")
+
+            logger.debug("Waiting for post-login navigation...")
+            await page.waitForNavigation({"waitUntil": "networkidle2", "timeout": login_timeout * 1000})
+            await debug_screenshot(page, "post_login")
+        else:
+            logger.info("Session appears already authenticated; skipping login step.")
+            await debug_screenshot(page, "session_reused")
 
         # 4. Navigate to Download page
         logger.debug("Looking for DownloadMyData link...")
-        nav_success = await page.evaluate(
-            """() => {{
-            const link = document.querySelector('a[href="DownloadMyData"]');
-            if (link) {{ link.click(); return true; }}
-            return false;
-        }}"""
-        )
+        await page.waitForSelector('a[href="DownloadMyData"]', {"timeout": 30000})
+        await page.click('a[href="DownloadMyData"]')
 
-        if not nav_success:
-            raise Exception(f"Navigation failed. URL: {page.url}")
-
-        await asyncio.sleep(10)
+        logger.debug("Waiting for DownloadMyData page to load...")
+        await page.waitForSelector(".rz-datepicker input", {"timeout": 30000})
+        await debug_screenshot(page, "download_page_loaded")
 
         # 5. Intercept API call to fetch XML data
         download_status = {"success": False}
 
         async def intercept_request(request):
-            if "api/Data/GetUsageData" in request.url:
+            if "api/Data/GetUsageData" in request.url and not download_status["success"]:
                 auth = request.headers.get("authorization")
                 if auth:
-                    logger.debug("Intercepted API call. Fetching XML...")
+                    logger.debug("Intercepted API call. Fetching XML via aiohttp...")
                     try:
-                        resp = requests.get(
-                            request.url, headers={"Authorization": auth}
-                        )
-                        if resp.status_code == 200:
-                            path = os.path.join(DOWNLOAD_DIR, "hydro_data.xml")
-                            with open(path, "wb") as f:
-                                f.write(resp.content)
-                            download_status["success"] = True
-                            logger.info(f"SUCCESS: File saved to {path}")
+                        async with aiohttp.ClientSession() as session:
+                            async with session.get(
+                                request.url, headers={"Authorization": auth}
+                            ) as resp:
+                                if resp.status == 200:
+                                    content = await resp.read()
+                                    path = os.path.join(DOWNLOAD_DIR, "hydro_data.xml")
+                                    with open(path, "wb") as f:
+                                        f.write(content)
+                                    download_status["success"] = True
+                                    logger.info(f"SUCCESS: File saved to {path}")
+                                else:
+                                    logger.error(
+                                        f"Interception failed: HTTP {resp.status} from {request.url}"
+                                    )
                     except Exception as e:
                         logger.error(f"Interception failed: {e}")
 
         await page.setRequestInterception(True)
-        
+
         async def handle_request(req):
-            await intercept_request(req)
-            await req.continue_()
-        
-        page.on("request", lambda req: asyncio.ensure_future(handle_request(req)))
+            try:
+                await intercept_request(req)
+            finally:
+                try:
+                    await req.continue_()
+                except Exception as e:
+                    logger.debug(f"Request continue_() failed or aborted: {e}")
+
+            if download_status["success"]:
+                try:
+                    await page.setRequestInterception(False)
+                except Exception as e:
+                    logger.debug(f"Disabling interception failed: {e}")
+
+        page.on("request", handle_request)
 
         # 6. Click the necessary checkboxes, set the date, and export
         logger.debug(f"Setting Start Date to {from_date_str} and triggering export...")
@@ -148,7 +174,6 @@ async def download_hydro_data():
             if (dateInput) {{
                 dateInput.focus();
                 dateInput.value = '{from_date_str}';
-                // Trigger events so the website's framework (Blazor) notices the change
                 dateInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
                 dateInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
                 dateInput.blur();
@@ -168,7 +193,6 @@ async def download_hydro_data():
             clickRadzenCheck('chkElectUsageData');
             clickRadzenCheck('chkBillingData');
 
-            // Wait for progress bar to disappear
             await new Promise(r => {{
                 const i = setInterval(() => {{
                     if (!document.querySelector('.rz-progressbar')) {{ 
@@ -178,13 +202,15 @@ async def download_hydro_data():
                 }}, 500);
             }});
 
-            // Click the Green Button logo
             const btn = Array.from(document.querySelectorAll('button'))
                              .find(b => b.querySelector('img[src*="gb_logo.png"]'));
             if (btn) btn.click();
         }}"""
         )
 
+        await debug_screenshot(page, "export_triggered")
+
+        # Wait up to ~25 seconds for the intercepted download to succeed
         for i in range(25):
             if download_status["success"]:
                 break
@@ -192,14 +218,21 @@ async def download_hydro_data():
                 logger.debug(f"Waiting for download ({i}/25)...")
             await asyncio.sleep(1)
 
+        if not download_status["success"]:
+            logger.warning("Download did not complete within expected time window.")
+            await debug_screenshot(page, "download_timeout")
+
     except Exception as e:
         logger.error(f"WORKER FAILED: {e}")
         if debug_mode and page is not None:
-            await page.screenshot({"path": f"{DOWNLOAD_DIR}/error_latest.png"})
+            await debug_screenshot(page, "exception")
     finally:
         if browser is not None:
             logger.debug("Closing browser.")
-            await browser.close()
+            try:
+                await browser.close()
+            except Exception as e:
+                logger.debug(f"Error closing browser: {e}")
 
 
 async def main_loop():
@@ -217,7 +250,20 @@ async def main_loop():
             else:
                 scrapes_per_day = 4
 
-            await download_hydro_data()
+            try:
+                scrapes_per_day = int(scrapes_per_day)
+            except ValueError:
+                scrapes_per_day = 4
+            if scrapes_per_day <= 0:
+                logger.warning(
+                    f"Invalid scrapes_per_day={scrapes_per_day}, defaulting to 4."
+                )
+                scrapes_per_day = 4
+
+            try:
+                await asyncio.wait_for(download_hydro_data(), timeout=300)
+            except asyncio.TimeoutError:
+                logger.error("Scrape timed out after 300 seconds; will retry next interval.")
 
             sleep_seconds = 86400 / scrapes_per_day
             logger.info(f"Next scrape in {sleep_seconds/3600:.1f} hours.")

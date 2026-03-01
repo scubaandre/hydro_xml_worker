@@ -1,5 +1,28 @@
 # Changelog
 
+## v0.1.8
+
+### Major Improvements
+- Migrated all blocking HTTP calls from `requests` to fully asynchronous `aiohttp` to prevent event‑loop stalls and improve reliability under Home Assistant OS.
+- Removed fixed `asyncio.sleep()` delays and replaced them with deterministic waits (`waitForSelector`, `waitForNavigation`, `waitForFunction`) for more stable scraping.
+- Hardened login flow using native `page.type()` and `page.click()` to ensure Blazor/Radzen bindings fire correctly and reduce login failures.
+- Added a global 300‑second timeout around each scrape to guarantee soft‑fail behavior and prevent hung runs.
+
+### Stability & Reliability
+- Rewrote request interception to use a safe async handler without race conditions.
+- Added automatic disabling of request interception after the first successful XML capture.
+- Improved error handling around browser closure and request continuation.
+- Added validation for `scrapes_per_day` to avoid divide‑by‑zero and invalid configuration values.
+
+### Debugging Enhancements
+- Added a per‑run screenshot counter that resets at the start of each scrape.
+- Screenshots now saved as `debug_01.png`, `debug_02.png`, etc., overwriting each run for clean debugging.
+- Added screenshots at key checkpoints: login page loaded, credentials entered, post‑login, download page loaded, export triggered, and on exceptions.
+
+### File Handling
+- Improved reliability of XML download capture even when multiple API calls fire.
+- Enhanced logging around download success, timeout conditions, and interception failures.
+
 ## [0.1.6] - 2026-02-21
 
 ### Added
