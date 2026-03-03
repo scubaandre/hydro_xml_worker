@@ -1,102 +1,130 @@
 # Changelog
 
+## v0.1.9‑2
+
+### Changed
+- Replaced the numeric screenshot counter with label‑based screenshot filenames (`debug_<label>.png`) for clearer, human‑readable debugging.
+
+## v0.1.9
+
+### Added
+- Per‑run debug screenshots (`debug_01.png`, `debug_02.png`, …) for clearer diagnostics.
+- Global 300‑second scrape timeout to prevent hung browser sessions.
+
+### Changed
+- Rolled back to the stable 0.1.6 scraping logic for improved reliability.
+- Error screenshots now follow the incremental naming system.
+
+### Fixed
+- Improved visibility into login, navigation, and export stages through additional screenshots.
+- Ensured the main loop recovers cleanly after timeouts or unexpected failures.
+
 ## v0.1.8
 
-### Major Improvements
-- Migrated all blocking HTTP calls from `requests` to fully asynchronous `aiohttp` to prevent event‑loop stalls and improve reliability under Home Assistant OS.
-- Removed fixed `asyncio.sleep()` delays and replaced them with deterministic waits (`waitForSelector`, `waitForNavigation`, `waitForFunction`) for more stable scraping.
-- Hardened login flow using native `page.type()` and `page.click()` to ensure Blazor/Radzen bindings fire correctly and reduce login failures.
-- Added a global 300‑second timeout around each scrape to guarantee soft‑fail behavior and prevent hung runs.
+### Added
+- Asynchronous HTTP handling using `aiohttp`.
+- Deterministic waits (`waitForSelector`, `waitForNavigation`, `waitForFunction`) replacing fixed delays.
+- Hardened login flow using native typing and clicking.
+- Global 300‑second scrape timeout.
 
-### Stability & Reliability
-- Rewrote request interception to use a safe async handler without race conditions.
-- Added automatic disabling of request interception after the first successful XML capture.
+### Changed
+- Reworked request interception to avoid race conditions.
+- Disabled interception automatically after the first successful XML capture.
 - Improved error handling around browser closure and request continuation.
-- Added validation for `scrapes_per_day` to avoid divide‑by‑zero and invalid configuration values.
-
-### Debugging Enhancements
-- Added a per‑run screenshot counter that resets at the start of each scrape.
-- Screenshots now saved as `debug_01.png`, `debug_02.png`, etc., overwriting each run for clean debugging.
-- Added screenshots at key checkpoints: login page loaded, credentials entered, post‑login, download page loaded, export triggered, and on exceptions.
-
-### File Handling
-- Improved reliability of XML download capture even when multiple API calls fire.
-- Enhanced logging around download success, timeout conditions, and interception failures.
-
-## [0.1.6] - 2026-02-21
-
-### Added
-- **Historical Export:** Added `days_to_export` configuration option. Users can now specify how many days of history to pull (configurable between 2 and 90 days).
-- **Date Picker Automation:** The scraper now automatically calculates and injects the start date into the Hydro Ottawa portal using JavaScript event bubbling to ensure the Blazor framework registers the change.
+- Validated `scrapes_per_day` to prevent invalid configurations.
 
 ### Fixed
-- **Syntax Error:** Resolved an "unmatched bracket" error in the JavaScript evaluation block that was causing a `SyntaxError` on startup.
-- **Versioning Standard:** Transitioned from `00.01.05` to standard Semantic Versioning `0.1.6` for better compatibility with automation tools.
-- **Loop Reliability:** Fixed a variable reference error (`i` vs `_`) in the download wait-loop and improved the main loop's crash recovery logic.
+- Added per‑run screenshot counter for clean debugging.
+- Added screenshots at key checkpoints (login, navigation, export, exceptions).
+- Improved reliability of XML capture when multiple API calls fire.
+
+## v0.1.6 — 2026‑02‑21
+
+### Added
+- `days_to_export` configuration option for historical exports.
+- Automatic date injection into the Hydro Ottawa portal using Blazor‑safe event bubbling.
 
 ### Changed
-- **Config UI:** Enhanced the configuration page with detailed descriptions for each variable to improve the user onboarding experience.
-- **Logging:** Optimized logging levels; technical connection details moved to `DEBUG`, while milestones remain in `INFO`.
-
-## [00.01.05] - 2026-02-16
-### Added
-- better configuration field description in EN and FR
-
-## [00.01.04] - 2026-02-15
-### Fixed
-- debug logging fixed 
-
-## [00.01.03] - 2026-02-13
-### Added
-- **Milestone Debugging:** Detailed log output for every stage of the scraping process (Login, Navigation, Interception).
-- **CPU Safety Valve:** Implemented `asyncio.sleep` in the main loop and error handlers to prevent high CPU usage (busy-looping).
-- **Live Config Reload:** The service now re-reads `scrapes_per_day` and `debug_mode` at the start of every cycle without needing a restart.
+- Adopted Semantic Versioning (`0.1.6`).
+- Improved configuration UI descriptions.
+- Adjusted logging levels for clearer output.
 
 ### Fixed
-- Resolved an issue where the add-on would consume 25% CPU when idling or failing.
-- Fixed a timing bug where the scrape would attempt to start before Browserless was fully ready.
+- Corrected a JavaScript syntax error in the evaluation block.
+- Resolved a variable reference issue in the download wait loop.
+- Improved main loop crash recovery.
+
+## 00.01.05 — 2026‑02‑16
+
+### Added
+- Improved configuration field descriptions (EN/FR).
+
+## 00.01.04 — 2026‑02‑15
+
+### Fixed
+- Debug logging output.
+
+## 00.01.03 — 2026‑02‑13
+
+### Added
+- Detailed milestone logging for each scraping stage.
+- CPU safety valve using `asyncio.sleep`.
+- Live config reload for `scrapes_per_day` and `debug_mode`.
 
 ### Changed
-- Refined the "Green Button" download logic to ensure both Usage and Billing checkboxes are reliably toggled.
+- Refined Green Button download logic.
 
-## [00.01.02] - 2026-02-12
+### Fixed
+- Reduced idle CPU usage.
+- Corrected timing issue when Browserless was not yet ready.
+
+## 00.01.02 — 2026‑02‑12
+
 ### Changed
-- Converted add-on to a persistent background service.
+- Converted add‑on to a persistent background service.
 - Implemented internal scheduling based on `scrapes_per_day`.
-- Added `PYTHONUNBUFFERED` for real-time log streaming.
-- Improved logic for "Billing/Cost" checkbox selection.
+- Enabled real‑time log streaming with `PYTHONUNBUFFERED`.
+- Improved Billing/Cost checkbox logic.
 
-## [00.01.01] - 2026-02-07
-### Added
-- Support for including Billing/Cost data in the XML export.
-- Precise element targeting using Radzen input IDs.
+## 00.01.01 — 2026‑02‑07
 
-## [00.01.00] - 2026-02-06
 ### Added
-- **Debug Mode**: New configuration toggle to save step-by-step screenshots to `/share/hydro_ottawa/` for easier troubleshooting.
-- **Blazor Event Dispatching**: Enhanced credential injection to ensure compatibility with Hydro Ottawa's dynamic portal.
-- **Network Wiretap**: Implemented CDP (Chrome DevTools Protocol) interception to capture the XML data stream directly from the API.
-- **Version Tracking**: Formalized versioning string inside the Python logs and Docker labels.
+- Billing/Cost data support.
+- Precise Radzen input targeting.
+
+## 00.01.00 — 2026‑02‑06
+
+### Added
+- Debug mode with step‑by‑step screenshots.
+- Blazor‑safe credential injection.
+- CDP interception for XML capture.
+- Version tracking in logs and Docker labels.
 
 ### Changed
-- Refactored login logic to handle redirect delays more gracefully.
-- Updated documentation and README with setup instructions for Browserless and Green Button integrations.
+- Improved login handling for redirect delays.
+- Updated documentation for Browserless and Green Button setup.
 
 ### Fixed
-- Resolved an issue where the download button was clicked before the Blazor state was fully ready.
-- Fixed a bug where the `hydro_data.xml` file could be locked if the script crashed mid-write.
+- Corrected timing around Blazor readiness.
+- Resolved file‑locking issue during XML writes.
+
 ## 0.00.08
-- Added randomized jitter (0-45s) to prevent synchronized scraping.
-- Added stealth headers to mimic a real Chrome browser.
-- New configuration option: `scrapes_per_day` (1-24).
-- Added automatic cleanup of old debug screenshots in `/share`.
-- Optimized Blazor-safe login injection.
+
+### Added
+- Randomized jitter (0–45s) to avoid synchronized scraping.
+- Stealth headers to mimic real Chrome.
+- `scrapes_per_day` configuration (1–24).
+- Automatic cleanup of old debug screenshots.
+- Optimized Blazor‑safe login injection.
 
 ## 0.00.07
-- Standardized `config.yaml` schema for Home Assistant Supervisor compatibility.
-- Fixed `login_timeout` and `browser_url` regex validation.
 
-## 0.00.01 - 0.00.06
-- Initial local development and proof-of-concept.
+### Changed
+- Standardized `config.yaml` schema.
+- Improved validation for `login_timeout` and `browser_url`.
 
-- Implemented Browserless CDP session for XML interception.
+## 0.00.01–0.00.06
+
+### Added
+- Initial development and proof‑of‑concept.
+- Browserless CDP session for XML interception.
