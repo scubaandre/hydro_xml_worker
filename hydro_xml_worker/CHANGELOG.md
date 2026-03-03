@@ -4,6 +4,7 @@
 
 ### Changed
 - Replaced the numeric screenshot counter with label‑based screenshot filenames (`debug_<label>.png`) for clearer, human‑readable debugging.
+- code cleanup
 
 ## v0.1.9
 
