@@ -6,7 +6,7 @@
 A solution to automate the extraction of electricity usage and cost data from the Hydro Ottawa Green Button portal (https://hydroottawa.savagedata.com) directly into the Home Assistant Energy Dashboard.
 
 ## ⚡ Overview
-This repository provides a Home Assistant Add-on that eliminates the need for manual downloads by running a "headless" background scraper that simulates a login, intercepts the data stream, and provides it to Home Assistant in real-time.
+This repository provides a Home Assistant app (Add-on) that eliminates the need for manual downloads, by running a "headless" background scraper that simulates a login, intercepts the data stream, and provides it to Home Assistant in real-time.
 
 ### The Stack:
 * **The Scraper (Add-on):** A persistent service that logs in and exports Green Button XML data.
